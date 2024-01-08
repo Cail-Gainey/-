@@ -1,0 +1,354 @@
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+  <script src="/js/vue.min.js"></script>
+  <script src="/js/jquery-3.3.1.min.js"></script>
+  <script src="/js/element.js"></script>
+  <link rel="stylesheet" href="/css/element.css">
+  <style>
+    .pagination-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <el-container>
+    <el-header>
+      <el-row :gutter="20">
+        <el-col :span="12"><div class="grid-content bg-purple"><el-input
+                placeholder="请输入用户ID"
+                prefix-icon="el-icon-search"
+                v-model="input1">
+        </el-input></div></el-col>
+        <el-col :span="2">
+          <el-button type="primary" icon="el-icon-refresh" @click="refreshPage">刷新</el-button>
+        </el-col>
+        <el-col :span="2">
+          <el-button type="primary" icon="el-icon-circle-plus-outline" @click="showAddDialog">添加</el-button>
+        </el-col>
+        <el-col :span="2">
+          <el-button type="danger" icon="el-icon-delete" round @click="deleteSelectedUsers">批量删除</el-button>
+        </el-col>
+      </el-row>
+    </el-header>
+
+    <el-main style="padding: 0;">
+      <el-table :data="filteredUserData.slice((currentPage-1)*pageSize, currentPage*pageSize)">
+        <el-table-column width="55" align="center">
+          <template slot="header" slot-scope="scope">
+            <el-checkbox v-model="selectAll" @change="handleSelectAll"></el-checkbox>
+          </template>
+          <template slot-scope="scope">
+            <el-checkbox v-model="scope.row.selected"></el-checkbox>
+          </template>
+        </el-table-column>
+        <el-table-column prop="userID" label="账户" min-width="1px"></el-table-column>
+        <el-table-column prop="password" label="密码" min-width="1px"></el-table-column>
+        <el-table-column prop="type" label="类型" min-width="1px" align="center">
+          <template slot-scope="scope">
+            <span v-if="scope.row.type === 0">管理员</span>
+            <span v-else-if="scope.row.type === 1">用户</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" min-width="1px">
+          <template slot-scope="scope">
+            <el-button type="primary" icon="el-icon-edit" circle @click="showEditDialog(scope.row)"></el-button>
+            <el-button type="danger" icon="el-icon-delete" circle @click="deleteUser(scope.row.userID)"></el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="pagination-container">
+        <el-pagination
+                @current-change="handleCurrentChange"
+                :current-page="currentPage"
+                :page-size="pageSize"
+                :total="filteredUserData.length"
+                layout="prev, pager, next"
+                :pager-count="3"
+                :prev-text="'< '"
+                :next-text="' >'"
+                :hide-on-single-page="true">
+        </el-pagination>
+      </div>
+    </el-main>
+  </el-container>
+
+  <el-dialog :visible.sync="editDialogVisible" title="编辑用户" width="30%">
+    <el-form :model="editForm" label-width="80px" ref="editFormRef" :rules="editFormRules">
+      <el-form-item label="账户" prop="userID">
+        <el-input v-model="editForm.userID" disabled></el-input>
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input v-model="editForm.password"></el-input>
+      </el-form-item>
+      <el-form-item label="类型" prop="type">
+        <el-select v-model="editForm.type">
+          <el-option label="管理员" value="0"></el-option>
+          <el-option label="用户" value="1"></el-option>
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="editDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="saveEditForm">保存</el-button>
+    </div>
+  </el-dialog>
+
+  <el-dialog :visible.sync="addDialogVisible" title="添加用户" width="30%">
+    <el-form :model="addForm" label-width="80px" ref="addFormRef" :rules="addFormRules">
+      <el-form-item label="账户" prop="userID">
+        <el-input v-model="addForm.userID"></el-input>
+      </el-form-item>
+      <el-form-item label="密码" prop="password">
+        <el-input v-model="addForm.password"></el-input>
+      </el-form-item>
+      <el-form-item label="类型" prop="type">
+        <el-select v-model="addForm.type">
+          <el-option label="管理员" value="0"></el-option>
+          <el-option label="用户" value="1"></el-option>
+        </el-select>
+      </el-form-item>
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="addDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="saveAddForm">保存</el-button>
+    </div>
+  </el-dialog>
+</div>
+</body>
+<script>
+  new Vue({
+    el: '#app',
+    data() {
+      return {
+        userData: [],
+        input1: '',
+        currentPage: 1,
+        pageSize: 11,
+        selectAll: false,
+        // 修改用户
+        editDialogVisible: false,
+        editForm: {
+          userID: '',
+          password: '',
+          type: ''
+        },
+        editFormRules: {
+          userID: [
+            { required: true, message: '请输入账户', trigger: 'blur' },
+          ],
+          password: [
+            { required: true, message: '请输入密码', trigger: 'blur' },
+          ],
+          type: [
+            { required: true, message: '请选择类型', trigger: 'change' },
+          ],
+        },
+
+        // 添加用户
+        addDialogVisible: false,
+        addForm: {
+          userID: '',
+          password: '',
+          type: ''
+        },
+        addFormRules: {
+          userID: [
+            { required: true, message: '请输入账户', trigger: 'blur' },
+          ],
+          password: [
+            { required: true, message: '请输入密码', trigger: 'blur' },
+          ],
+          type: [
+            { required: true, message: '请选择类型', trigger: 'change' },
+          ],
+        },
+      };
+    },
+    computed: {
+      filteredUserData() {
+        if (this.input1 === '') {
+          return this.userData;
+        } else {
+          return this.userData.filter(user => user.userID.toString().includes(this.input1));
+        }
+      }
+    },
+
+    mounted() {
+      $.ajax({
+        type: "GET",
+        url: "/showUser",
+        dataType: "json",
+        success: (data) => {
+          this.userData = data.map(user => {
+            return {
+              ...user,
+              selected: false
+            };
+          });
+        },
+        error: (xhr, status, error) => {
+          console.error("Error: " + error);
+        }
+      });
+    },
+    methods: {
+      handleSelectAll() {
+        for (const row of this.filteredUserData) {
+          row.selected = this.selectAll;
+        }
+      },
+      handleCurrentChange(val) {
+        this.currentPage = val;
+      },
+      // 修改用户
+      showEditDialog(row) {
+        this.editForm = {
+          userID: row.userID,
+          password: row.password,
+          type: row.type
+        };
+        this.editDialogVisible = true;
+      },
+      saveEditForm() {
+        this.$refs.editFormRef.validate((valid) => {
+          if (valid) {
+            $.ajax({
+              type: "POST",
+              url: "/upUser",
+              data: JSON.stringify(this.editForm),
+              contentType: "application/json",
+              dataType: "json",
+              success: (data) => {
+                if (data.code === 200) {
+                  this.editDialogVisible = false;
+                  this.$message.success("修改成功");
+                  this.refreshPage();
+                } else {
+                  this.$message.error("修改失败");
+                }
+              },
+              error: (xhr, status, error) => {
+                console.error("Error: " + error);
+              }
+            });
+          }
+        });
+      },
+      // 添加用户
+      showAddDialog() {
+        this.addForm = {
+          userID: '',
+          password: '',
+          type: ''
+        };
+        this.addDialogVisible = true;
+      },
+      saveAddForm() {
+        this.$refs.addFormRef.validate((valid) => {
+          if (valid) {
+            $.ajax({
+              type: "POST",
+              url: "/addUser",
+              data: JSON.stringify(this.addForm),
+              contentType: "application/json",
+              dataType: "json",
+              success: (data) => {
+                if (data.code === 200) {
+                  this.addDialogVisible = false;
+                  this.$message.success("添加成功");
+                  this.refreshPage();
+                } else {
+                  this.$message.error("添加失败");
+                }
+              },
+              error: (xhr, status, error) => {
+                console.error("Error: " + error);
+              }
+            });
+          }
+        });
+      },
+      refreshPage() {
+        // 重新获取用户数据
+        $.ajax({
+          type: "GET",
+          url: "/showUser",
+          dataType: "json",
+          success: (data) => {
+            this.userData = data.map(user => {
+              return {
+                ...user,
+                selected: false
+              };
+            });
+          },
+          error: (xhr, status, error) => {
+            console.error("Error: " + error);
+          }
+        });
+      },
+      // 删除用户
+      deleteUser(userID) {
+        $.ajax({
+          type: "DELETE",
+          url: "/delUser?userID=" + userID,
+          dataType: "json",
+          success: (data) => {
+            if (data.code === 200) {
+              this.$message.success("删除成功");
+              this.refreshPage();
+            } else {
+              this.$message.error("删除失败");
+            }
+          },
+          error: (xhr, status, error) => {
+            console.error("Error: " + error);
+          }
+        });
+      },
+      deleteSelectedUsers() {
+        const selectedUsers = this.filteredUserData.filter(user => user.selected);
+        const users = selectedUsers.map(user => user.userID);
+
+        if (users.length === 0) {
+          this.$message.warning("请先选择要删除的用户");
+          return;
+        }
+
+        this.$confirm("确认删除选中的用户吗？", "提示", {
+          confirmButtonText: "确定",
+          cancelButtonText: "取消",
+          type: "warning",
+        })
+                .then(() => {
+                  $.ajax({
+                    type: "POST",
+                    url: "/delUser",
+                    data: JSON.stringify(users),
+                    contentType: "application/json",
+                    dataType: "json",
+                    success: (data) => {
+                      if (data.code === 200) {
+                        this.$message.success("删除成功");
+                        this.refreshPage();
+                      } else {
+                        this.$message.error("删除失败");
+                      }
+                    },
+                    error: (xhr, status, error) => {
+                      console.error("Error: " + error);
+                    },
+                  });
+                })
+                .catch(() => {
+                  this.$message.info("已取消删除");
+                });
+      },
+    }
+  });
+</script>

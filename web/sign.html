@@ -1,0 +1,80 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>注册账号</title>
+    <script src="/js/vue.min.js"></script>
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <script src="/js/element.js"></script>
+    <link rel="stylesheet" href="/css/element.css">
+    <link rel="stylesheet" href="/css/login/style.css">
+</head>
+
+<body>
+<div id="app">
+    <div class="container">
+        <div class="drop">
+            <div class="content">
+                <h2>Sign in</h2>
+                <div class="put" :model="signForm">
+                    <div class="inputBox">
+                        <input type="text" placeholder="UserID" id="userID" v-model="signForm.userID"></div>
+                    <div class="inputBox">
+                        <input type="password" placeholder="Password" id="password" v-model="signForm.password"></div>
+                    <div class="inputBox">
+                        <input type="submit" value="Sign up" id="loginButton" @click="sign">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                signForm: {
+                    userID: '',
+                    password: '',
+                }
+            };
+        },
+        methods: {
+            sign: function() {
+                if (this.signForm.userID === '' || this.signForm.password === '') {
+                    this.$message.error("请输入用户名和密码");
+                    return;
+                }
+
+                $.ajax({
+                    dataType: "json",
+                    url: "/sign",
+                    type: "POST",
+                    data: {
+                        "userID": this.signForm.userID,
+                        "password": this.signForm.password,
+                        "type": "1",
+                    },
+                    success: function(data) {
+                        if (data.code === 200) {
+                            this.$message.success("注册成功");
+                            setTimeout(function() {
+                                window.location.href = "/index.html";
+                            }, 1000);
+                        } else if (data.code === 4001) {
+                            this.$message.error("该用户已存在,请重新输入");
+                        } else {
+                            this.$message.error("注册失败，请稍后重试");
+                        }
+                    }.bind(this),
+                    error: function() {
+                        this.$message.error("注册失败，请稍后重试");
+                    }.bind(this)
+                });
+            }
+        }
+    });
+</script>
+</body>
+</html>

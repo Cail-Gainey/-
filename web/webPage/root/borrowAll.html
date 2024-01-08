@@ -1,0 +1,145 @@
+<head>
+    <meta charset="UTF-8">
+    <title>借阅记录</title>
+    <script src="/js/vue.min.js"></script>
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <script src="/js/element.js"></script>
+    <link rel="stylesheet" href="/css/element.css">
+    <style>
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-container>
+        <el-header>
+            <el-row :gutter="20">
+                <el-col :span="12"><div class="grid-content bg-purple"><el-input
+                        placeholder="请输入用户ID"
+                        prefix-icon="el-icon-search"
+                        v-model="input1">
+                </el-input></div></el-col>
+                <el-col :span="4"><div class="grid-content bg-purple"></div></el-col>
+                <el-col :span="4"><div class="grid-content bg-purple"></div></el-col>
+                <el-col :span="4"><div class="grid-content bg-purple">
+                    <el-button type="primary" icon="el-icon-refresh" @click="refreshPage">刷新</el-button>
+                </div></el-col>
+            </el-row>
+        </el-header>
+
+        <el-main style="padding: 0;">
+            <el-table :data="filteredBookData.slice((currentPage-1)*pageSize, currentPage*pageSize)">
+                <el-table-column prop="book_id" label="序号" min-width="1px"></el-table-column>
+                <el-table-column prop="userID" label="用户" min-width="1px"></el-table-column>
+                <el-table-column prop="book_name" label="书名" min-width="1px"></el-table-column>
+                <el-table-column prop="book_author" label="作者" min-width="1px"></el-table-column>
+                <el-table-column prop="book_publisher" label="出版社" min-width="1px"></el-table-column>
+                <el-table-column prop="borrow_time" label="还书时间" min-width="1px"></el-table-column>
+            </el-table>
+            <div class="pagination-container">
+                <el-pagination
+                        @current-change="handleCurrentChange"
+                        :current-page="currentPage"
+                        :page-size="pageSize"
+                        :total="filteredBookData.length"
+                        layout="prev, pager, next"
+                        :pager-count="3"
+                        :prev-text="'< '"
+                        :next-text="' >'"
+                        :hide-on-single-page="true">
+                </el-pagination>
+            </div>
+        </el-main>
+    </el-container>
+
+</div>
+</body>
+<script>
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                bookData: [],
+                input1: '',
+                currentPage: 1,
+                pageSize: 15,
+                userID: '',
+            };
+        },
+        created() {
+            // 获取URL中的查询参数
+            function getQueryParams() {
+                var params = {};
+                var search = window.location.search.substring(1);
+                var pairs = search.split("&");
+                for (var i = 0; i < pairs.length; i++) {
+                    var pair = pairs[i].split("=");
+                    var key = decodeURIComponent(pair[0]);
+                    var value = decodeURIComponent(pair[1]);
+                    params[key] = value;
+                }
+                return params;
+            }
+
+            // 获取id参数的值
+            var queryParams = getQueryParams();
+            this.userID = queryParams.userID;
+        },
+        computed: {
+            filteredBookData() {
+                if (this.input1 === '') {
+                    return this.bookData;
+                } else {
+                    return this.bookData.filter(book => book.userID.toString().includes(this.input1));
+                }
+            }
+        },
+        mounted() {
+            $.ajax({
+                type: "GET",
+                url: "/borrowAll",
+                dataType: "json",
+                success: (data) => {
+                    this.bookData = data.map(book => {
+                        return {
+                            ...book,
+                            selected: false
+                        };
+                    });
+                },
+                error: (xhr, status, error) => {
+                    console.error("Error: " + error);
+                }
+            });
+        },
+        methods: {
+            handleCurrentChange(val) {
+                this.currentPage = val;
+            },
+
+            refreshPage() {
+                // 重新获取图书数据
+                $.ajax({
+                    type: "GET",
+                    url: "/borrowAll?userID=" + this.userID,
+                    dataType: "json",
+                    success: (data) => {
+                        this.bookData = data.map(book => {
+                            return {
+                                ...book,
+                                selected: false
+                            };
+                        });
+                    },
+                    error: (xhr, status, error) => {
+                        console.error("Error: " + error);
+                    }
+                });
+            },
+        }
+    });
+</script>

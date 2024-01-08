@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>图书管理系统</title>
+    <script src="/js/vue.min.js"></script>
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <script src="/js/element.js"></script>
+    <link rel="stylesheet" href="/css/element.css">
+
+    <style>
+        .el-header {
+            background-color: #B3C0D1;
+            color: #333;
+            line-height: 60px;
+        }
+
+        .el-aside {
+            color: #333;
+        }
+        body {
+            display: block;
+            margin: 0;
+        }
+        #app {
+            height: 100vh;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-header>
+        <div style="display: flex; justify-content: space-between;">
+            <div style="font-size: 30px">
+                <i class="el-icon-s-home" style="margin-right: 10px"></i>
+                <span>图书管理系统</span>
+            </div>
+            <div>
+                <el-dropdown>
+                    <i class="el-icon-s-custom" style="margin-right: 10px"></i>
+                    <el-dropdown-menu slot="dropdown">
+                        <el-dropdown-item @click.native="logout">退出</el-dropdown-item>
+                    </el-dropdown-menu>
+                </el-dropdown>
+                <span v-if="userID">欢迎您，{{ userID }}</span>
+            </div>
+        </div>
+    </el-header>
+
+    <el-container>
+        <el-aside width="200px" style="background-color: rgb(238, 241, 246); height: calc(100vh - 60px)">
+            <el-menu :default-openeds="['1']" :collapse="isCollapse" :unique-opened="true">
+                <el-submenu index="1">
+                    <template slot="title"><i class="el-icon-s-home"></i>首页</template>
+                    <el-menu-item @click="loadPage('/webPage/root/rootHome.html', { userID: userID, last_time: last_time })">首页</el-menu-item>
+                </el-submenu>
+                <el-submenu index="2">
+                    <template slot="title"><i class="el-icon-setting"></i>图书管理</template>
+                    <el-menu-item-group>
+                        <el-menu-item @click="loadPage('/webPage/root/bookList_root.html', userID)">图书列表</el-menu-item>
+                    </el-menu-item-group>
+                </el-submenu>
+                <el-submenu index="3">
+                    <template slot="title"><i class="el-icon-user"></i>用户中心</template>
+                    <el-menu-item @click="loadPage('/webPage/root/userList.html', userID)">用户列表</el-menu-item>
+                    <el-menu-item @click="loadPage('/webPage/root/borrowAll.html', userID)">借阅记录</el-menu-item>
+                    <el-menu-item @click="loadPage('/webPage/root/repaidAll.html', userID)">还书记录</el-menu-item>
+                </el-submenu>
+                <el-submenu index="4">
+                    <template slot="title"><i class="el-icon-s-data"></i>统计</template>
+                    <el-menu-item @click="loadPage('/webPage/Top/topUser.html', userID)">TOP</el-menu-item>
+                </el-submenu>
+            </el-menu>
+        </el-aside>
+
+        <el-main style="padding: 0;">
+            <iframe :src="iframeSrc" name="iframe_a" frameborder="1" style="width: 100%; height: 100%; border: none;"></iframe>
+        </el-main>
+    </el-container>
+</div>
+
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            userID: '',
+            last_time: '',
+            iframeSrc: '',
+            isCollapse: false,
+        },
+        created() {
+            this.userID = localStorage.getItem("userID");
+            this.last_time = localStorage.getItem("last_time");
+            this.loadPage('/webPage/root/rootHome.html', this.userID);
+        },
+        methods: {
+            loadPage(page, userID) {
+                let queryString = '';
+                if (page === '/webPage/root/rootHome.html') {
+                    queryString = `?userID=` + this.userID.toString() + `&last_time=`+this.last_time.toString();
+                } else {
+                    queryString = `?userID=` + userID.toString();
+                }
+                this.iframeSrc = page + queryString;
+                this.isCollapse = false;
+            },
+            logout() {
+                window.location.href = "/index.html";
+            },
+        }
+    });
+</script>
+</body>
+</html>

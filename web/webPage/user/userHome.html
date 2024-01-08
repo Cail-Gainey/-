@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Title</title>
+  <meta charset="UTF-8">
+  <script src="/js/vue.min.js"></script>
+  <script src="/js/jquery-3.3.1.min.js"></script>
+  <script src="/js/element.js"></script>
+  <script src="/js/echarts.min.js"></script>
+  <link rel="stylesheet" href="/css/element.css">
+</head>
+<body>
+<div id="app">
+  <div>
+    <el-row :gutter="20">
+      <el-col :span="8">
+        <div class="grid-content bg-purple">
+          <!-- 首页user信息 -->
+          <el-card shadow="hover">
+            <div class="userCard">
+              <el-avatar :size="150" :src="imgUrl"></el-avatar>
+              <div class="userInfo">
+                <p class="important-font">{{ userID }}</p>
+                <p class="secondary-font">用户</p>
+              </div>
+              <div><el-button size="mini" round @click="showDialog">修改密码</el-button></div>
+            </div>
+            <div class="login-info">
+              <p v-if="last_time === '' || last_time === null || last_time === 'undefined'">欢迎首次登录</p>
+              <p v-else>上次登录时间: {{ last_time }}</p>
+            </div>
+          </el-card>
+          <!-- 首页表格 -->
+          <el-card shadow="hover" class="tableInfo">
+            <div slot="header">
+              <span class="important-font">最新图书</span>
+              <el-link :underline="false" type="primary"  href="/webPage/user/bookList.html">
+                <i class="el-icon-view el-icon--right">更多</i>
+              </el-link>
+            </div>
+            <el-table :data="tableData.slice(-8)" stripe border height="450px" style="width: 100%">
+              <el-table-column prop="book_name" label="书名" ></el-table-column>
+              <el-table-column prop="book_author" label="作者" width="100"></el-table-column>
+              <el-table-column prop="book_publisher" label="出版社"></el-table-column>
+              <el-table-column prop="add_time" label="上架时间" width="100"></el-table-column>
+            </el-table>
+          </el-card>
+        </div>
+      </el-col>
+      <el-col :span="16">
+
+        <div class="num">
+          <el-card :body-style="{ padding: '0px', height: '530px', width: '1109px'}">
+            <img src="/img/welcome.png" class="image">
+          </el-card>
+        </div>
+        <!-- 柱状图 -->
+        <el-card style="height: 280px">
+          <div style="height: 280px;" ref="barEcharts"></div>
+        </el-card>
+      </el-col>
+    </el-row>
+  </div>
+  <el-dialog title="修改密码" :visible.sync="dialogVisible" width="30%" @close="resetForm">
+    <el-form ref="form" :model="form" label-width="80px">
+      <el-form-item label="旧密码">
+        <el-input v-model="form.oPwd" type="password"></el-input>
+      </el-form-item>
+      <el-form-item label="新密码">
+        <el-input v-model="form.nPwd" type="password"></el-input>
+      </el-form-item>
+    </el-form>
+    <div slot="footer" class="dialog-footer">
+      <el-button @click="dialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="submitForm">保存</el-button>
+    </div>
+  </el-dialog>
+</div>
+
+<script>
+  new Vue({
+    el: '#app',
+    data() {
+      return {
+        imgUrl: '/img/0.jpg',
+        value: new Date(),
+        tableData: [],
+        last_time: '',
+        userID:'',
+        dialogVisible: false,
+        form: {
+          oPwd: '',
+          nPwd: '',
+        },
+      };
+    },
+    created() {
+      // 获取传入的值
+      const params = new URLSearchParams(window.location.search);
+      const userID = params.get('userID');
+      const last_time = params.get('last_time');
+      console.log(last_time)
+      // 将值赋给对应的数据属性
+      this.userID = String(userID);
+      this.last_time = last_time;
+
+      this.$notify({
+        title: 'Welcome',
+        message: '欢迎您，' + this.userID,
+        type: 'success'
+      });
+
+      this.fetchTableData();
+      this.fetchBarData();
+    },
+    methods: {
+      fetchTableData() {
+        $.ajax({
+          dataType: "json",
+          url: "/showBook",
+          type: "GET",
+          success: function(data) {
+            // 按照上架时间进行排序
+            data.sort(function(a, b) {
+              return new Date(b.add_time) - new Date(a.add_time);
+            });
+            // 只显示最新的8本书
+            this.tableData = data;
+          }.bind(this),
+          error: function() {
+            this.$message.error("获取数据失败，请稍后重试");
+          }.bind(this)
+        });
+      },
+      fetchBarData() {
+        $.ajax({
+          dataType: "json",
+          url: "/borrowAll",
+          type: "GET",
+          success: function(data) {
+            const bookCountMap = {};
+            for (const book of data) {
+              const bookName = book.book_name;
+              if (bookCountMap[bookName]) {
+                bookCountMap[bookName]++;
+              } else {
+                bookCountMap[bookName] = 1;
+              }
+            }
+
+            const seriesData = Object.keys(bookCountMap).map(bookName => {
+              return {
+                name: bookName,
+                value: bookCountMap[bookName]
+              };
+            });
+
+            seriesData.sort((a, b) => b.value - a.value);
+
+            this.createBarChart(seriesData);
+          }.bind(this),
+          error: function() {
+            this.$message.error("获取用户数据失败，请稍后重试");
+          }.bind(this)
+        });
+      },
+      createBarChart(data) {
+        let myChart = echarts.init(this.$refs.barEcharts);
+        let option = {
+          title: {
+            text: '图书借阅量排行榜'
+          },
+          tooltip: {},
+          legend: {
+            data: ['借阅量']
+          },
+          xAxis: {
+            data: data.map(item => item.name),
+            axisLabel: {
+              rotate: 30,
+              interval: 0
+            }
+          },
+          yAxis: {},
+          series: [
+            {
+              name: '借阅量',
+              type: 'bar',
+              data: data.map(item => item.value)
+            }
+          ]
+        };
+        myChart.setOption(option);
+      },
+      showDialog() {
+        this.dialogVisible = true;
+      },
+      resetForm() {
+        this.$refs.form.resetFields();
+      },
+      submitForm() {
+        var oPwd = this.form.oPwd.trim();
+        var nPwd = this.form.nPwd.trim();
+
+        $.ajax({
+          dataType: 'json',
+          url: '/upPwd',
+          type: 'POST',
+          data: {
+            "oPwd": oPwd,
+            "nPwd": nPwd,
+            "userID": this.userID
+          },
+          success: function (data) {
+            if (data.code === 200) {
+              this.$message.success("修改成功");
+              setTimeout(() => {
+                window.top.location.href = "/index.html";
+              }, 1000);
+            } else if (data.code === 403) {
+              this.$message.error("原密码错误，请重新输入");
+            }
+          }.bind(this),
+          error: function () {
+            this.message.error("服务器错误,请稍后重试");
+          }
+        })
+      },
+    },
+  });
+</script>
+
+<style lang="less" scoped>
+  .el-card__body {
+    padding: 10px;
+  }
+  .userCard {
+    height: 180px;
+    display: flex;
+    border-bottom: 2px solid #DCDFE6;
+    border-radius: 2px;
+  }
+  .userInfo {
+    width: auto;
+    padding: 6% 0 0 6%;
+  }
+  .important-font {
+    font-weight: 900;
+    font-size: 25px;
+  }
+  .secondary-font {
+    color: #909399;
+  }
+  .login-info {
+    height: 40px;
+    text-align: left;
+    color: #909399;
+  }
+  .tableInfo {
+    margin: 20px 0 0 0;
+  }
+  .OrderCard {
+    margin: 0 0 30px 30px;
+    border: #DCDFE6 1px solid;
+    border-radius: 10px;
+  i {
+    width: 30%;
+    line-height: 120px;
+    font-size: 30px;
+    color: #fff;
+  }
+  div {
+    width: 300px;
+  }
+  }
+  .el-card {
+    border: none;
+  }
+  .num {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .graph {
+    margin: 15px 0 0 0;
+  }
+  .el-calendar {
+    height: 265px;
+  }
+  .image {
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-position: center;
+    width: 100%;
+    height: 100%;
+  }
+</style>
+</body>
+</html>

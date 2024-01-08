@@ -1,0 +1,98 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <script src="/js/vue.min.js"></script>
+  <script src="/js/jquery-3.3.1.min.js"></script>
+  <script src="/js/echarts.min.js"></script>
+  <title>热门图书TOP</title>
+  <style type="text/css">
+    #main{
+      width: 900px;
+      height: 600px;
+      margin: 10px auto;
+    }
+  </style>
+</head>
+
+<body>
+<div id="main"></div>
+<script type="text/javascript">
+  new Vue({
+    el: '#main',
+    data() {
+      return {
+        bookData: []
+      };
+    },
+    mounted() {
+      $.ajax({
+        type: "GET",
+        url: "/borrowAll",
+        dataType: "json",
+        success: (data) => {
+          this.bookData = data.map(book => {
+            return {
+              ...book,
+              selected: false
+            };
+          });
+          this.refreshChart();
+        },
+        error: (xhr, status, error) => {
+          console.error("Error: " + error);
+        }
+      });
+    },
+    methods: {
+      refreshChart() {
+        var bookCountMap = {};
+        for (var i = 0; i < this.bookData.length; i++) {
+          var book = this.bookData[i];
+          if (bookCountMap[book.book_name]) {
+            bookCountMap[book.book_name]++;
+          } else {
+            bookCountMap[book.book_name] = 1;
+          }
+        }
+
+        var seriesData = [];
+        var sortedBookCount = Object.entries(bookCountMap).sort((a, b) => b[1] - a[1]);
+        for (var i = 0; i < Math.min(sortedBookCount.length, 5); i++) {
+          var bookName = sortedBookCount[i][0];
+          var bookCount = sortedBookCount[i][1];
+          seriesData.push({
+            name: bookName,
+            value: bookCount
+          });
+        }
+
+        var mainDiv = document.getElementById("main");
+        var myChart = echarts.init(mainDiv);
+        var option = {
+          title: {
+            text: '热门图书TOP'
+          },
+          legend: {
+            data: seriesData.map(item => item.name)
+          },
+          tooltip: {},
+          series: [
+            {
+              name: '热门图书TOP',
+              type: 'pie',
+              radius: '55%',
+              roseType: 'radius',
+              data: seriesData
+            }
+          ]
+        };
+        myChart.setOption(option);
+      }
+    }
+  });
+</script>
+</body>
+
+</html>

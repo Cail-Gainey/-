@@ -1,0 +1,385 @@
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="/js/vue.min.js"></script>
+    <script src="/js/jquery-3.3.1.min.js"></script>
+    <script src="/js/element.js"></script>
+    <link rel="stylesheet" href="/css/element.css">
+    <style>
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-container>
+        <el-header>
+            <el-row :gutter="20">
+                <el-col :span="12" offset:="8">
+                    <div class="grid-content bg-purple"><el-input
+                            placeholder="请输入书名"
+                            prefix-icon="el-icon-search"
+                            v-model="input1"></el-input>
+                    </div></el-col>
+                <el-col :span="2" >
+                    <el-button type="primary" icon="el-icon-refresh" @click="refreshPage">刷新</el-button>
+                </el-col>
+                <el-col :span="2">
+                    <el-button type="primary" icon="el-icon-circle-plus-outline" @click="showAddDialog">添加</el-button>
+                </el-col>
+                <el-col :span="2">
+                    <el-button type="danger" icon="el-icon-delete" round @click="deleteSelectedBooks">批量删除</el-button>
+                </el-col>
+            </el-row>
+        </el-header>
+
+        <el-main style="padding: 0;">
+            <el-table :data="filteredBookData.slice((currentPage-1)*pageSize, currentPage*pageSize)">
+                <el-table-column width="55" align="center">
+                    <template slot="header" slot-scope="scope">
+                        <el-checkbox v-model="selectAll" @change="handleSelectAll"></el-checkbox>
+                    </template>
+                    <template slot-scope="scope">
+                        <el-checkbox v-model="scope.row.selected"></el-checkbox>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="book_id" label="序号" min-width="1px" align="center"></el-table-column>
+                <el-table-column prop="book_name" label="书名" min-width="1px" align="center"></el-table-column>
+                <el-table-column prop="book_author" label="作者" min-width="1px" align="center"></el-table-column>
+                <el-table-column prop="book_publisher" label="出版社" min-width="1px" align="center"></el-table-column>
+                <el-table-column prop="book_price" label="价格" min-width="1px" align="center"></el-table-column>
+                <el-table-column prop="book_state" label="状态" min-width="1px" align="center">
+                    <template slot-scope="scope">
+                        <span v-if="scope.row.book_state === 0">在售</span>
+                        <span v-else-if="scope.row.book_state === 1">无货</span>
+                    </template>
+                </el-table-column>
+                <el-table-column prop="add_time" label="入库时间" min-width="1px" align="center"></el-table-column>
+                <el-table-column label="操作" min-width="1px" align="center">
+                    <template slot-scope="scope">
+                        <el-button type="primary" icon="el-icon-edit" circle @click="showEditDialog(scope.row)"></el-button>
+                        <el-button type="danger" icon="el-icon-delete" circle @click="deleteBook(scope.row.book_id)"></el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+            <div class="pagination-container">
+                <el-pagination
+                        @current-change="handleCurrentChange"
+                        :current-page="currentPage"
+                        :page-size="pageSize"
+                        :total="filteredBookData.length"
+                        layout="prev, pager, next"
+                        :pager-count="3"
+                        :prev-text="'< '"
+                        :next-text="' >'"
+                        :hide-on-single-page="true">
+                </el-pagination>
+            </div>
+        </el-main>
+    </el-container>
+
+    <el-dialog :visible.sync="editDialogVisible" title="编辑图书" width="30%">
+        <el-form :model="editForm" label-width="80px" ref="editFormRef" :rules="editFormRules">
+            <el-form-item label="书名" prop="book_name">
+                <el-input v-model="editForm.book_name"></el-input>
+            </el-form-item>
+            <el-form-item label="作者" prop="book_author">
+                <el-input v-model="editForm.book_author"></el-input>
+            </el-form-item>
+            <el-form-item label="出版社">
+                <el-input v-model="editForm.book_publisher"></el-input>
+            </el-form-item>
+            <el-form-item label="价格" prop="book_price">
+                <el-input v-model="editForm.book_price"></el-input>
+            </el-form-item>
+            <el-form-item label="状态" prop="book_state">
+                <el-select v-model="editForm.book_state">
+                    <el-option label="在售" value="0"></el-option>
+                    <el-option label="无货" value="1"></el-option>
+                </el-select>
+            </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+            <el-button @click="editDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="saveEditForm">保存</el-button>
+        </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="addDialogVisible" title="添加图书" width="30%">
+        <el-form :model="addForm" label-width="80px" ref="addFormRef" :rules="addFormRules">
+            <el-form-item label="书名" prop="book_name">
+                <el-input v-model="addForm.book_name"></el-input>
+            </el-form-item>
+            <el-form-item label="作者" prop="book_author">
+                <el-input v-model="addForm.book_author"></el-input>
+            </el-form-item>
+            <el-form-item label="价格" prop="book_price">
+                <el-input v-model="addForm.book_price"></el-input>
+            </el-form-item>
+            <el-form-item label="出版社" prop="book_publisher">
+                <el-input v-model="addForm.book_publisher"></el-input>
+            </el-form-item>
+        </el-form>
+        <div slot="footer" class="dialog-footer">
+            <el-button @click="addDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="saveAddForm">保存</el-button>
+        </div>
+    </el-dialog>
+</div>
+</body>
+<script>
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                bookData: [],
+                input1: '',
+                currentPage: 1,
+                pageSize: 11,
+                selectAll:false,
+                //修改图书
+                editDialogVisible: false,
+                editForm: {
+                    book_id: '',
+                    book_name: '',
+                    book_author: '',
+                    book_publisher: '',
+                    book_price: '',
+                    book_state: ''
+                },
+                editFormRules: {
+                    book_name: [
+                        { required: true, message: '请输入书名', trigger: 'blur' },
+                    ],
+                    book_author: [
+                        { required: true, message: '请输入作者', trigger: 'blur' },
+                    ],
+                    book_publisher: [
+                        { required: true, message: '请输入出版社', trigger: 'blur' },
+                    ],
+                    book_price: [
+                        { required: true, message: '请输入价格', trigger: 'blur' },
+                    ],
+                    book_state: [
+                        { required: true, message: '请选择状态', trigger: 'change' },
+                    ],
+                },
+
+                //添加图书
+                addDialogVisible: false,
+                addForm: {
+                    book_name: '',
+                    book_author: '',
+                    book_price: '',
+                    book_publisher: '',
+                    add_time: '',
+                },
+                addFormRules: {
+                    book_name: [
+                        { required: true, message: '请输入书名', trigger: 'blur' },
+                    ],
+                    book_author: [
+                        { required: true, message: '请输入作者', trigger: 'blur' },
+                    ],
+                    book_price: [
+                        { required: true, message: '请输入价格', trigger: 'blur' },
+                    ],
+                    book_publisher: [
+                        { required: true, message: '请输入出版社', trigger: 'blur' },
+                    ],
+                },
+            };
+        },
+        computed: {
+            filteredBookData() {
+                if (this.input1 === '') {
+                    return this.bookData;
+                } else {
+                    return this.bookData.filter(book => book.book_name.includes(this.input1));
+                }
+            }
+        },
+        mounted() {
+            $.ajax({
+                type: "GET",
+                url: "/showBook",
+                dataType: "json",
+                success: (data) => {
+                    this.bookData = data.map(book => {
+                        return {
+                            ...book,
+                            selected: false
+                        };
+                    });
+                },
+                error: (xhr, status, error) => {
+                    console.error("Error: " + error);
+                }
+            });
+        },
+        methods: {
+            handleSelectAll() {
+                for (const row of this.filteredBookData) {
+                    row.selected = this.selectAll;
+                }
+            },
+            handleCurrentChange(val) {
+                this.currentPage = val;
+            },
+            //修改
+            showEditDialog(row) {
+                this.editForm = {
+                    book_id: row.book_id,
+                    book_name: row.book_name,
+                    book_author: row.book_author,
+                    book_publisher: row.book_publisher,
+                    book_price: row.book_price,
+                    book_state: row.book_state
+                };
+                this.editDialogVisible = true;
+            },
+            saveEditForm() {
+                this.$refs.editFormRef.validate((valid) => {
+                    if (valid) {
+                        $.ajax({
+                            type: "POST",
+                            url: "/upBook",
+                            data: JSON.stringify(this.editForm),
+                            contentType: "application/json",
+                            dataType: "json",
+                            success: (data) => {
+                                if (data.code === 200) {
+                                    this.editDialogVisible = false;
+                                    this.$message.success("修改成功");
+                                    this.refreshPage();
+                                } else {
+                                    this.$message.error("修改失败");
+                                }
+                            },
+                            error: (xhr, status, error) => {
+                                console.error("Error: " + error);
+                            }
+                        });
+                    }
+                });
+            },
+            //添加
+            showAddDialog() {
+                this.addForm = {
+                    book_name: '',
+                    book_author: '',
+                    book_price: '',
+                    book_publisher: '',
+                    add_time: new Date().toISOString().split('T')[0],
+                };
+                this.addDialogVisible = true;
+            },
+
+            saveAddForm() {
+                this.$refs.addFormRef.validate((valid) => {
+                    if (valid) {
+                        $.ajax({
+                            type: "POST",
+                            url: "/addBook",
+                            data: JSON.stringify(this.addForm),
+                            contentType: "application/json",
+                            dataType: "json",
+                            success: (data) => {
+                                if (data.code === 200) {
+                                    this.addDialogVisible = false;
+                                    this.$message.success("添加成功");
+                                    this.refreshPage();
+                                } else {
+                                    this.$message.error("添加失败");
+                                }
+                            },
+                            error: (xhr, status, error) => {
+                                console.error("Error: " + error);
+                            }
+                        });
+                    }
+                });
+            },
+            refreshPage() {
+                // 重新获取图书数据
+                $.ajax({
+                    type: "GET",
+                    url: "/showBook",
+                    dataType: "json",
+                    success: (data) => {
+                        this.bookData = data.map(book => {
+                            return {
+                                ...book,
+                                selected: false
+                            };
+                        });
+                    },
+                    error: (xhr, status, error) => {
+                        console.error("Error: " + error);
+                    }
+                });
+            },
+            //删除
+            deleteBook(book_id) {
+                $.ajax({
+                    type: "DELETE",
+                    url: "/delBook?book_id=" + book_id,
+                    dataType: "json",
+                    success: (data) => {
+                        if (data.code === 200) {
+                            this.$message.success("删除成功");
+                            this.refreshPage();
+                        }else {
+                            this.$message.error("删除失败");
+                        }
+                    },
+                    error: (xhr, status, error) => {
+                        console.error("Error: " + error);
+                    }
+                });
+            },
+            //批量删除
+            deleteSelectedBooks() {
+                const selectedBooks = this.filteredBookData.filter(book => book.selected);
+                const bookIds = selectedBooks.map(book => book.book_id);
+
+                if (bookIds.length === 0) {
+                    this.$message.warning("请先选择要删除的图书");
+                    return;
+                }
+
+                this.$confirm("确认删除选中的图书吗？", "提示", {
+                    confirmButtonText: "确定",
+                    cancelButtonText: "取消",
+                    type: "warning",
+                })
+                    .then(() => {
+                        $.ajax({
+                            type: "POST",
+                            url: "/delBook",
+                            data: JSON.stringify(bookIds),
+                            contentType: "application/json",
+                            dataType: "json",
+                            success: (data) => {
+                                if (data.code === 200) {
+                                    this.$message.success("删除成功");
+                                    this.refreshPage();
+                                } else {
+                                    this.$message.error("删除失败");
+                                }
+                            },
+                            error: (xhr, status, error) => {
+                                console.error("Error: " + error);
+                            },
+                        });
+                    })
+                    .catch(() => {
+                        this.$message.info("已取消删除");
+                    });
+            },
+        }
+    });
+</script>

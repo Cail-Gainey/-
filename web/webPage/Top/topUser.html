@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <script src="/js/vue.min.js"></script>
+  <script src="/js/jquery-3.3.1.min.js"></script>
+  <script src="/js/echarts.min.js"></script>
+  <title>用户借阅TOP</title>
+  <style type="text/css">
+    #container {
+      display: flex;
+      justify-content: center;
+    }
+    #main1,
+    #main2 {
+      width: 50%;
+      height: 600px;
+      margin: 10px;
+    }
+  </style>
+</head>
+
+<body>
+<div id="container">
+  <div id="main1"></div>
+  <div id="main2"></div>
+</div>
+<script type="text/javascript">
+  new Vue({
+    el: '#main1',
+    data() {
+      return {
+        bookData: []
+      };
+    },
+    mounted() {
+      $.ajax({
+        type: "GET",
+        url: "/borrowAll",
+        dataType: "json",
+        success: (data) => {
+          this.bookData = data.map(book => {
+            return {
+              ...book,
+              selected: false
+            };
+          });
+          this.refreshChart();
+        },
+        error: (xhr, status, error) => {
+          console.error("Error: " + error);
+        }
+      });
+    },
+    methods: {
+      refreshChart() {
+        var userCountMap = {};
+        for (var i = 0; i < this.bookData.length; i++) {
+          var book = this.bookData[i];
+          if (userCountMap[book.userID]) {
+            userCountMap[book.userID]++;
+          } else {
+            userCountMap[book.userID] = 1;
+          }
+        }
+
+        var seriesData = [];
+        for (var userID in userCountMap) {
+          seriesData.push({
+            name: userID,
+            value: userCountMap[userID]
+          });
+        }
+
+        var mainDiv = document.getElementById("main1");
+        var myChart = echarts.init(mainDiv);
+        var option = {
+          title: {
+            text: '用户借阅TOP',
+            x: 'center',
+          },
+          legend: {
+            orient:'vertical',
+            x:'left',
+            y:'top',
+            padding: [25,0,0,0],
+            data: Object.keys(userCountMap)
+          },
+          tooltip: {},
+          series: [
+            {
+              name: '用户借阅量',
+              type: 'pie',
+              radius: '55%',
+              data: seriesData
+            }
+          ]
+        };
+        myChart.setOption(option);
+      }
+    }
+  });
+
+  new Vue({
+  el: '#main2',
+  data() {
+    return {
+      bookData: []
+    };
+  },
+  mounted() {
+    $.ajax({
+      type: "GET",
+      url: "/borrowAll",
+      dataType: "json",
+      success: (data) => {
+        this.bookData = data.map(book => {
+          return {
+            ...book,
+            selected: false
+          };
+        });
+        this.refreshChart();
+      },
+      error: (xhr, status, error) => {
+        console.error("Error: " + error);
+      }
+    });
+  },
+  methods: {
+    refreshChart() {
+      // 可以根据需要修改图表的配置和数据处理逻辑
+      var bookCountMap = {};
+      for (var i = 0; i < this.bookData.length; i++) {
+        var book = this.bookData[i];
+        if (bookCountMap[book.book_name]) {
+          bookCountMap[book.book_name]++;
+        } else {
+          bookCountMap[book.book_name] = 1;
+        }
+      }
+
+      // 对图书按照借阅次数进行排序
+      var sortedBooks = Object.keys(bookCountMap).sort((a, b) => {
+        return bookCountMap[b] - bookCountMap[a];
+      });
+
+      // 只取前5个图书
+      var top5Books = sortedBooks.slice(0, 5);
+
+      var seriesData = [];
+      for (var i = 0; i < top5Books.length; i++) {
+        var bookName = top5Books[i];
+        seriesData.push({
+          name: bookName,
+          value: bookCountMap[bookName]
+        });
+      }
+
+      var mainDiv = document.getElementById("main2");
+      var myChart = echarts.init(mainDiv);
+      var option = {
+        title: {
+          text: '热门图书TOP',
+          x: 'center',
+        },
+        legend: {
+          x: 'center',
+          y: 'top',
+          padding: [25, 0, 0, 0],
+          data: top5Books
+        },
+        tooltip: {},
+        series: [
+          {
+            name: '热门图书TOP',
+            type: 'pie',
+            radius: '55%',
+            roseType: 'radius',
+            data: seriesData
+          }
+        ]
+      };
+      myChart.setOption(option);
+    }
+  }
+});
+</script>
+</body>
+
+</html>
